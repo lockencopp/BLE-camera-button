@@ -1,21 +1,19 @@
+
 /**
  * @file BLE-Shutter-Button.cpp
- * @brief A BLE-based shutter button implementation for Arduino using the ESP32 platform.
- *
- * This program scans for a specific BLE device, connects to it, and listens for notifications
- * from the HID service to determine whether to trigger a "Focus" or "Shutter" action based on
- * the timing of received data. It also retrieves battery level information if available.
+ * @brief This file implements a BLE client for connecting to a BLE HID device (e.g., a BLE keyboard).
+ *        It scans for a specific BLE device, establishes a connection, and handles notifications for button states.
  *
  * @details
- * - The program uses the ESP32 BLE library to handle BLE communication.
- * - It scans for a device with a specific MAC address and name ("BT1818").
- * - Upon finding the target device, it connects and subscribes to notifications from the HID service.
- * - Notifications are processed to determine the action (Focus or Shutter) based on timing.
- * - The program also supports retrying BLE scans if the target device is not found.
- * - Security features such as pairing and authentication are implemented.
+ * - The program uses the ESP32 BLE library to interact with BLE devices.
+ * - It scans for a target BLE device with a specific MAC address and name.
+ * - Upon finding the device, it connects and subscribes to the HID input characteristic to receive notifications.
+ * - The program also handles BLE security, pairing, and reconnection logic.
+ * - Button states are processed based on the received notification data.
+ * - Shutter, focus, and hold actions are distinguished based on the button hold time.
  *
- * @author Christoph
- * @date 2023
+ * @author Christoph Deussen
+ * @date 2025-05-04
  *
  * @dependencies
  * - Arduino.h
@@ -25,38 +23,33 @@
  * - BLEAdvertisedDevice.h
  * - BLEClient.h
  * - BLESecurity.h
+ * - button_handling.h
  *
  * @note
  * - Replace `targetMACAddress` with the MAC address of your target BLE device.
- * - Ensure the ESP32 BLE library is installed in your Arduino environment.
- *
- * @defines
- * - DEBUG: Enables or disables debug output.
+ * - Debug output can be enabled or disabled by setting the `DEBUG` macro.
  *
  * @global_variables
  * - `myDevice`: Pointer to the discovered BLE device.
  * - `keyboardInputCharacteristic`: Pointer to the HID input characteristic.
- * - `doConnect`: Flag indicating whether to initiate a connection.
- * - `connected`: Flag indicating whether the device is connected.
- * - `retryScan`: Flag indicating whether to retry scanning.
+ * - `doConnect`: Flag to indicate whether to initiate a connection.
+ * - `connected`: Flag to indicate whether the device is connected.
+ * - `retryScan`: Flag to indicate whether to retry scanning.
  * - `lastScanTime`: Timestamp of the last BLE scan.
- * - `targetMACAddress`: The MAC address of the target BLE device.
- * - `data_last`, `data_now`, `time_last`: Variables used for notification handling.
+ * - `scheduler_tick_now`: Current scheduler tick.
+ * - `scheduler_tick_last`: Scheduler tick for timing.
+ * - `targetMACAddress`: MAC address of the target BLE device.
  *
  * @functions
- * - `handleNotification(uint8_t* pData, size_t length)`: Processes received notifications to determine actions.
- * - `notifyCallback(BLERemoteCharacteristic* pCharacteristic, uint8_t* pData, size_t length, bool isNotify)`: Callback for handling notifications.
+ * - `handleNotification(uint8_t *pData, size_t length)`: Processes notification data from the BLE device.
+ * - `notifyCallback(BLERemoteCharacteristic *pCharacteristic, uint8_t *pData, size_t length, bool isNotify)`: Callback for BLE notifications.
  * - `MyClientCallback`: Custom BLE client callback class for handling connection and disconnection events.
  * - `MyAdvertisedDeviceCallbacks`: Custom BLE advertised device callback class for handling scan results.
  * - `MySecurity`: Custom BLE security callback class for handling pairing and authentication.
  * - `setupBLEScan()`: Configures and starts the BLE scan.
- * - `connectToDevice()`: Connects to the target BLE device and subscribes to notifications.
+ * - `connectToDevice()`: Connects to the target BLE device and subscribes to the HID input characteristic.
  * - `setup()`: Initializes the BLE environment and starts scanning.
- * - `loop()`: Main program loop that handles connection and scan retries.
- *
- * @example
- * - Ensure the target BLE device is powered on and within range.
- * - Upload the code to an ESP32 board and monitor the serial output for connection status.
+ * - `loop()`: Main program loop for handling BLE connection, scanning, and button state processing.
  */
 #include <Arduino.h>
 #include <BLEDevice.h>
